@@ -6,6 +6,13 @@ MyISAM
     适合对事务完整性没要求或以select、insert为主的应用。
     存储：表定义、数据、索引三种文件。将数据和索引文件放在不同目录可以平均分布IO，获得更快速度。
     表支持三种不同存储格式：静态表、动态表、压缩表。
+    动态表优点是占用空间较少，但是频繁更新和删除会产生随便，需要定期执行optimize table语句改善性能，出现故障时恢复比较困难。
+    压缩表由myisampack工具创建，占据非常小的磁盘空间。
 Innodb
     提供了具有提交、回滚、崩溃恢复能力的事务安全。
     写的处理效率比Myisam稍差，会占用更多磁盘空间保存数据和索引。
+    如果要清空保存有大量数据的表，最好使用truncate table这个命令。
+    Mysql唯一支持外键的存储引擎，例如子表为city表，父（主）表为country表，子表在创建外键时会自动创建对应的索引（可以指定restrict、cascade、set null、no action四种on delete或on update操作）。
+    导入多个表的数据或执行load data和alter table操作时可以在那时关闭外键的检查：set foreign_key_checks=0。
+    存储：使用共享表空间存储，使用多表空间存储（可以比较方便地进行单表备份和恢复操作————通过复制文件的话只能只能恢复到原来所在的数据库，正常情况推荐使用 mysqldump 和 mysqlimport）
+两者的其他比较，见：https://blog.csdn.net/erjian666/article/details/53043618
