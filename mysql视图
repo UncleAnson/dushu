@@ -1,0 +1,31 @@
+视图并不在数据库中实际存在，行和列数据来自定义视图的查询中使用的表，并且是在使用视图时动态生成的。
+
+相对普通表的优势：
+简单
+安全
+数据独立
+
+创建视图：
+alter | create [or replace] view view_name as
+select_statement
+*from后不能使用子查询，可以先创建视图，再创建视图。
+
+以下视图不可更新：
+1、包含聚合函数
+2、常量视图
+3、select中包含子查询
+    select (select city from city where city_id=1);
+4、from一个不能更新的视图
+5、......
+
+[with[cascaded|local] check option]：
+local：只要满足本视图的条件就可以更新。
+cascaded：必须满足所有针对该视图的所有视图的条件才可以更新。
+
+删除视图：
+drop view [if exist] view view_name;
+
+查看视图：
+show tables [like "xxx"]\G;
+show table status [like "xxx"]\G;
+show create view view_name\G;
