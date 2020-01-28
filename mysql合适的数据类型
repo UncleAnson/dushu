@@ -1,0 +1,25 @@
+char    varchar
+固定长度    可变长度
+处理速度快   慢
+存储空间要求大 小
+但是，不同引擎对两者的使用原则不同：
+MyISAM引擎：建议使用固定长度的数据列（非严格模式下超出长度部分不会保留，也不会报错）代替可变长度的数据列。
+MEMORY引擎：两者都作为固定长度处理。
+InnoDB引擎：建议使用Varchar。内部没有区分是否可变长度，所有数据行都使用指向数据列值的头指针，主要性能因素是数据行使用的存储总量。
+
+TEXT    BLOB
+相同点 大文本
+不同点 字符数据    二进制数据，如照片
+* 数据delete操作的删除会从数据文件中留下空白，mysql使用optimize table tbn命令。
+精确查询 使用合成索引（为内容建立散列值）
+    创建表
+    create table t (id varchar(100), context blob, hash_value varchar(40));
+    插入数据
+    insert into t values(1, repeat("beijing",2), md5(context));
+    精确查找
+    select * from t where hash_value=md5(repeat("beijing",2));
+模糊查询 前缀索引（为内容的前n列创建索引）
+    在context的前100列（字符数）上创建前缀索引（Myisam最长1k字节，Innodb最长767字节）
+    create index idx_blob on t(context(100));
+    模糊查找（%不能放在前面，否则就是不用索引了）
+    desc select * from t where context like "beijing%" \G;
