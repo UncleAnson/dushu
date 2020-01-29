@@ -12,6 +12,7 @@
     x%y：mod(x,y)
     0～1随机值：rand()
     参数x四舍五入有y位小数的值：round(x,y)
+    *round(x)表示取整
     同上，但是是截断：truncate(x,y)
 日期和时间函数
     当前日期年月日：curdate()

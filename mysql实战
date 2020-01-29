@@ -1,0 +1,13 @@
+1、mysql对记录进行排序并获取记录的排名
+    SELECT t.height, @rownum := @rownum + 1 AS rownum
+    FROM (SELECT @rownum := 0) r, (SELECT * FROM member ORDER BY height DESC) AS t;
+    ===
+    SELECT @rownum := 0：表示对rownum赋初始值0。
+    @rownum := @rownum + 1：表示对rownum加1，语句中会从1开始，每一行往下都自动加1。
+
+    编写一个 SQL 查询来实现分数排名。如果两个分数相同，则两个分数排名（Rank）相同。请注意，平分后的下一个名次应该是下一个连续的整数值。换句话说，名次之间不应该有“间隔”。
+    来源：力扣（LeetCode）
+    链接：https://leetcode-cn.com/problems/rank-scores
+
+    select t1.*, @rank :=@rank+1 from (select distinct(Score) from Scores order by Score desc)t1, (select @rank:=0) t2;
+2、
