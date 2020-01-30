@@ -9,5 +9,225 @@
     来源：力扣（LeetCode）
     链接：https://leetcode-cn.com/problems/rank-scores
 
-    select t1.*, @rank :=@rank+1 from (select distinct(Score) from Scores order by Score desc)t1, (select @rank:=0) t2;
-2、
+    select m1.Score, m2.Rank Rank from Scores m1, (select t1.Score, @rank :=@rank+1 Rank from (select distinct(Score) from Scores order by Score desc)t1, (select @rank:=0) t2) m2 where m1.Score = m2.Score order by Score desc
+    打败96%
+
+2、编写一个 SQL 查询，查找所有至少连续出现三次的数字。
+    https://leetcode-cn.com/problems/consecutive-numbers
+    select distinct Num as ConsecutiveNums
+    from (
+      select Num,
+        case
+          when @prev = Num then @count := @count + 1
+          when (@prev := Num) then @count := 1
+        end as CNT
+      from Logs, (select @prev := null,@count := null) as t
+    ) as temp
+    where temp.CNT >= 3
+    ===
+    select @prev := null,@count := null 初始化用户变量
+    当变量@prev等于当前Num时，@count+1，
+    否则，赋值Num给@prev。
+
+3、编写一个 SQL 查询，找出每个部门工资最高的员工。例如，根据上述给定的表格，Max 在 IT 部门有最高工资，Henry 在 Sales 部门有最高工资。
+    https://leetcode-cn.com/problems/department-highest-salary/
+    select
+        d.Name as Department,
+        e.Name as Employee,
+        e.Salary
+    from
+        Employee e,Department d
+    where
+        e.DepartmentId=d.id
+        and
+        (e.Salary,e.DepartmentId) in (select max(Salary),DepartmentId from Employee group by DepartmentId);
+
+    稍逊的答案，逻辑比较长，子查询和关联比较多，效率低：
+    select t3.Name Department, t4.Employee, t4.Salary from Department t3 join(
+    select t1.Name Employee, t1.Salary Salary, t1.DepartmentId DepartmentId from Employee t1 join (
+    select DepartmentId, max(Salary) Salary from Employee group by DepartmentId
+    ) t2 on t1.DepartmentId=t2.DepartmentId where t1.Salary=t2.Salary
+    ) t4 on t3.Id=t4.DepartmentId
+
+4、编写一个 SQL 查询，找出每个部门获得前三高工资的所有员工。
+    https://leetcode-cn.com/problems/department-top-three-salaries/
+    对于这种分组内取前几名的问题，可以先group by然后用having count()来筛选，比如这题，找每个部门的工资前三名，那么先在子查询中用Employee和自己做连接，连接条件是【部门相同但是工资比我高】，那么接下来按照having count(Salary) <= 2来筛选的原理是：如果【跟我一个部门而且工资比我高的人数】不超过2个，那么我一定是部门工资前三，这样内层查询可以查询出所有符合要求的员工ID，接下来外层查询就简单了。
+
+    select d.Name as Department,e.Name as Employee,e.Salary as Salary
+    from Employee as e left join Department as d
+    on e.DepartmentId = d.Id
+    where e.Id in
+    (
+        select e1.Id
+        from Employee as e1 left join Employee as e2
+        on e1.DepartmentId = e2.DepartmentId and e1.Salary < e2.Salary
+        group by e1.Id
+        having count(distinct e2.Salary) <= 2
+    )
+    and e.DepartmentId in (select Id from Department)
+    order by d.Id asc,e.Salary desc
+
+5、编写一个 SQL 查询，来删除 Person 表中所有重复的电子邮箱，重复的邮箱里只保留 Id 最小 的那个。
+    https://leetcode-cn.com/problems/delete-duplicate-emails/
+
+    delete from Person where id not in (
+    select * from (select min(id) from Person group by Email) t);
+    打败89.02%
+    *删除语句当删除和查询同一张表时得绕一下， 需要新建一个子查询，否则报错：You can't specify target table 'Person' for update in FROM clause。
+    并集查询差一些，会产生笛卡尔乘积，如：
+    DELETE p1 FROM person p1, person p2 where p1.email = p2.email and p1.id > p2.id
+
+6、编写一个 SQL 查询，获取 Employee 表中第 n 高的薪水（Salary）。
+    CREATE FUNCTION getNthHighestSalary(N INT) RETURNS INT
+    BEGIN
+        SET N = N-1;
+        IF N < 0 THEN
+        RETURN NULL;
+        ELSE
+        RETURN (
+          # Write your MySQL query statement below.
+          select distinct(Salary) Salary from Employee order by Salary desc limit N, 1
+        );
+        end if;
+    END
+    调用：
+    call getNthHighestSalary(2);
+
+7、编写一个 SQL 查询，来查找与之前（昨天的）日期相比温度更高的所有日期的 Id。
+    https://leetcode-cn.com/problems/rising-temperature/
+    一般做法：
+    select a.Id from Weather a, Weather b where dateDiff(a.RecordDate, b.RecordDate)=1 and a.Temperature > b.Temperature
+    *思路是两表联查，会产生笛卡尔乘积，效率比较低。
+    很好的答案：
+    select
+        Id
+    from
+        (select w.*,
+         @curd := w.RecordDate,
+         @curt := w.Temperature,
+         @isH := if(datediff(@curd,@pred) = 1 and @curt > @pret,1,0) as r,
+         @pret := @curt,
+         @pred := @curd
+         from
+            Weather w,
+            (select
+                @curd := null,
+                @pred := null,
+                @curt := 0,
+                @pret := 0,
+                @isH := 0
+            ) init
+         order by w.RecordDate
+        ) t
+    where
+        t.r = 1
+    *注意执行顺序，使用变量curd，curt记录当前行的日期和温度，然后isH判断，变量pret、pred保存的是上一行的日期和温度（因为已经对RecordDate进行排序）。
+    非常糟糕的答案：
+    select Id from Weather t3 join
+    (select t2.old_date old_date, t1.Temperature old_w from Weather t1
+    join (select date_add(RecordDate, interval -1 day) old_date from Weather) t2
+    on t2.old_date = t1.RecordDate) t4
+    on date_add(t3.RecordDate, interval -1 day)=t4.old_date and t3.Temperature>t4.old_w
+
+8、写一段 SQL 语句查出 2013年10月1日 至 2013年10月3日 期间非禁止用户的取消率。基于上表，你的 SQL 语句应返回如下结果，取消率（Cancellation Rate）保留两位小数。
+    取消率的计算方式如下：(被司机或乘客取消的非禁止用户生成的订单数量) / (非禁止用户生成的订单总数)
+    https://leetcode-cn.com/problems/trips-and-users/
+    SELECT T.request_at AS `Day`,
+        ROUND(
+                SUM(
+                    IF(T.STATUS = 'completed',0,1)
+                )
+                /
+                COUNT(T.STATUS),
+                2
+        ) AS `Cancellation Rate`
+    FROM Trips AS T
+    JOIN Users AS U1 ON (T.client_id = U1.users_id AND U1.banned ='No')
+    JOIN Users AS U2 ON (T.driver_id = U2.users_id AND U2.banned ='No')
+    WHERE T.request_at BETWEEN '2013-10-01' AND '2013-10-03'
+    GROUP BY T.request_at
+
+9、游戏分析 511
+    SELECT
+        player_id,
+        min(event_date) AS first_login
+    FROM
+        Activity
+    GROUP BY player_id;
+
+    512
+    select
+        A.player_id,
+        A.device_id
+    from
+        Activity as A
+    join
+    (
+        select player_id,min(event_date) as `mdate`
+        from Activity
+        group by player_id
+    ) as B
+        on(A.player_id = B.player_id and A.event_date = B.mdate)
+
+    534
+    知识点：用户变量，系统变量，Join，IF，累加和或前缀和
+    MySql用户变量：基于会话变量实现的, 可以暂存值, 并传递给同一连接里的下一条sql使用的变量.当客户端连接退出时,变量会被释放，用户变量：以"@"开始，形式为"@变量名"，用户变量跟mysql客户端是绑定的，设置的变量，只对当前用户使用的客户端生效。也叫会话变量。
+    MySql用户变量赋值：如果使用没有初始化的变量，其值是NULL。使用set赋值时，使用的是“=”或者":="，使用select赋值时必须使用的是“:="。
+    MySql的IF():类似于Java的三目运算。
+    Mysql系统变量：以"@@"开始，形式为"@@变量名"。本题未涉及。
+
+    SELECT
+        C.player_id, C.event_date, C.games_played_so_far
+    FROM
+        (SELECT
+            A.player_id,
+            A.event_date,
+            @sum_cnt:=IF(A.player_id = @pre_id
+                AND A.event_date != @pre_date, @sum_cnt + A.games_played, A.games_played) AS `games_played_so_far`,
+            @pre_id:=A.player_id AS `player_ids`,
+            @pre_date:=A.event_date AS `event_dates`
+        FROM
+            activity AS A, (SELECT @pre_id:=NULL, @pre_date:=NULL, @sum_cnt:=0) AS B
+        ORDER BY A.player_id , A.event_date) AS C
+
+    550 Write an SQL query that reports the fraction of players that logged in again on the day after the day they first logged in, rounded to 2 decimal places. In other words, you need to count the number of players that logged in for at least two consecutive days starting from their first login date, then divide that number by the total number of players.
+
+    自己使用用户变量实现的答案，个人觉得还是不错的：
+    SELECT
+        ROUND(SUM(B.from_login) / COUNT(distinct(B.player_id)),
+                2) fraction
+    FROM
+        (SELECT
+            A.player_id,
+                A.event_date,
+                @login_date:=IF(A.player_id != @pre_id, A.event_date, @login_date) login_date,
+                @from_login:=IF(A.player_id = @pre_id, DATEDIFF(A.event_date, @login_date), 0) from_login,
+                @pre_id:=A.player_id pred_id
+        FROM
+            Activity A, (SELECT @from_login:=0, @pre_id = NULL, @login_date = NULL) init
+        ORDER BY A.player_id , A.event_date) B
+    WHERE
+        B.from_login IN (0 , 1)
+
+    使用联表和子查询的方式也能做：
+    SELECT ROUND(
+        (
+            SELECT COUNT(DISTINCT A.player_id)
+            FROM Activity AS A
+            JOIN Activity AS B ON A.player_id = B.player_id AND DATEDIFF(B.event_date,A.event_date)=1
+            WHERE A.event_date = (
+                SELECT MIN(event_date)
+                FROM Activity
+                WHERE player_id = A.player_id
+            )
+        )
+        /
+        (
+            SELECT COUNT(DISTINCT player_id)
+            FROM Activity
+        )
+        ,
+        2
+    ) AS `fraction`
+
+10、中位数的计算
