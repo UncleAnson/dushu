@@ -231,3 +231,140 @@
     ) AS `fraction`
 
 10、中位数的计算
+    中位数定义：
+    一串数字，按从小到大排列，当总数是奇数时，取最中间的数；当总数是偶数时，取最中间两个数的平均数。
+    解决思路：
+    按定义来，先排列，找出最中间的数，再取平均值。
+    下面的sql看不懂的话可以看：https://blog.csdn.net/liuade/article/details/82668681
+    SELECT
+        GROUP_CONCAT(id), AVG(value)
+    FROM
+        (SELECT
+            id, value
+        FROM
+            (SELECT
+            id, @index:=@index + 1 AS myindex, value
+        FROM
+            student, (SELECT @index:=0) AS initvar
+        ORDER BY value) AS t
+        WHERE
+            FLOOR(@index / 2 + 1) = myindex
+                OR CEIL(@index / 2) = myindex) AS x
+    * 注意：floor和ceil的顺序，
+    当@index是奇数时，floor(@index/2+1)和ceil(@index/2)的值一样的，@index=7时，floor(4.5) = ceil(3.5) = 4
+    当@index是偶数时，floor(@index/2+1)和ceil(@index/2)的值不一样，@index=6时，floor(4) = 4，ceil(3) = 3
+    这就解决了中位数定义中如果总个数是奇数只取一位，总个数是偶数取中间两个的平均数的问题。
+
+    另一种写法
+    SELECT A.Id,A.Company,A.Salary
+    FROM
+    (
+        SELECT
+        id,
+        company,
+        salary,
+        @trank:=IF(@pre_company=company,@trank+1,0) AS `trank`,
+        @pre_company:=company
+        FROM employee,(SELECT @pre_company:= NULL,@trank:=0) AS T
+        ORDER BY company,salary
+    ) AS A
+    JOIN
+    (
+        SELECT company, FLOOR((COUNT(*)-1)/2) AS `beg`, if(COUNT(*)%2=1,0,1) AS `cnt`
+        FROM employee
+        GROUP BY company
+    ) AS B
+    ON (A.company=B.company AND A.trank BETWEEN B.beg AND B.beg+B.cnt)
+    *另一种方法解决确定中位数位置，
+    FLOOR((COUNT(*)-1)/2) AS `beg`, if(COUNT(*)%2=1,0,1) AS `cnt`
+    BETWEEN B.beg AND B.beg+B.cnt
+    即，如果该公司有偶数条记录，则+1（cnt），奇数则beg就是中位数的位置。
+    先给每个公司的记录排序后打上序号，作为表A；
+    再按公司分组，计算beg和cnt，作为表B。
+
+
+11、请编写一个查询语句，找出人流量的高峰期。高峰期时，至少连续三行记录中的人流量不少于100。
+    https://leetcode-cn.com/problems/human-traffic-of-stadium/
+    这种题最主要还是思路！思路最重要！
+    比较一般的思路，但是还是比较难想的是，
+    select s1.* from stadium s1
+    where s1.people >=100
+    and (select count(*) from stadium where id between s1.id and s1.id+2 and people>= 100)>=3
+    or (select count(*) from stadium where id between s1.id-2 and s1.id and people>= 100)>=3
+    or (select count(*) from stadium where id between s1.id-1 and s1.id+1 and people>= 100)>=3
+    * between and是闭区间，
+    临时表有缓存，效率中下，打败20～70%。查询条件是当前日期人流量超过100（可以过滤掉大部分查询），且自己所在的区域为3的日期范围内人流量超过100的天数达到3。
+
+    联表查询，
+    select distinct a.* from stadium a,stadium b,stadium c
+    where a.people>=100 and b.people>=100 and c.people>=100
+    and (
+         (a.id = b.id-1 and b.id = c.id -1) or
+         (a.id = b.id-1 and a.id = c.id +1) or
+         (a.id = b.id+1 and b.id = c.id +1)
+    ) order by a.id
+    * 会产生笛卡尔乘积，效率中下。
+
+    比较喜欢用用户变量完成的解法，稳定打败90%以上。
+    select p.id,
+        p.visit_date,
+        p.people
+    from(
+        select id,
+            visit_date,
+            people,
+            @i1 := @i2 as p1,
+            @i2 := id as p2,
+            case when @i1 = @i2 -1 then @count := @count + 1
+                 else @count := 1 end as cnt
+        from stadium,(select @i1 := null,@i2 := null,@count := null) c
+        where people >=100
+    ) t
+    join stadium p
+    on (t.cnt >=3 and t.id = p.id) or (t.cnt = 3 and p.id in(t.id - 1,t.id - 2))
+    * 过滤掉所有人流量超过100的记录，用变量i1存放上一个id，i2存放当前id，
+    当i1=i2-1（即，连续）时，计数count+1，否则初始化为1。
+    case when觉得这里举例不错：https://www.cnblogs.com/chenduzizhong/p/9590741.html
+
+12、位运算&判断奇偶
+    select id,
+	    movie,
+	    description,
+	    rating
+	from  cinema
+	where not description = "boring" and id&1 order by rating desc
+	* 位运算、=精确判断、准确字段
+	比以下快n倍，
+	select * from  cinema where description not like "%boring%" and id%2=1 order by rating desc
+
+13、换座位 https://leetcode-cn.com/problems/exchange-seats/comments/
+    分享我的答案，执行用时 : 125 ms , 在所有 MySQL 提交中击败了 85.06% 的用户 内存消耗 : 0B , 在所有 MySQL 提交中击败了 100.00% 的用户
+    select
+    case
+    when id&1 then
+        case when id=(select count(1) from seat) then id else id+1 end
+    else id-1 end as id,
+    student
+     from seat
+    order by id
+    * 主要用到的是case when和位运算，根据题意，直接将id置换。
+
+14、将行根据month拆成列，
+    SELECT id,
+    SUM(CASE `month` WHEN 'Jan' THEN revenue END) Jan_Revenue,
+    SUM(CASE `month` WHEN 'Feb' THEN revenue END) Feb_Revenue,
+    SUM(CASE `month` WHEN 'Mar' THEN revenue END) Mar_Revenue,
+    SUM(CASE `month` WHEN 'Apr' THEN revenue END) Apr_Revenue,
+    SUM(CASE `month` WHEN 'May' THEN revenue END) May_Revenue,
+    SUM(CASE `month` WHEN 'Jun' THEN revenue END) Jun_Revenue,
+    SUM(CASE `month` WHEN 'Jul' THEN revenue END) Jul_Revenue,
+    SUM(CASE `month` WHEN 'Aug' THEN revenue END) Aug_Revenue,
+    SUM(CASE `month` WHEN 'Sep' THEN revenue END) Sep_Revenue,
+    SUM(CASE `month` WHEN 'Oct' THEN revenue END) Oct_Revenue,
+    SUM(CASE `month` WHEN 'Nov' THEN revenue END) Nov_Revenue,
+    SUM(CASE `month` WHEN 'Dec' THEN revenue END) Dec_Revenue
+    FROM Department
+    GROUP BY id;
+    * 也可以if，如：IF(`month`='Jan',revenue,NULL) Jan_Revenue
+
+15、
