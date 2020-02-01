@@ -367,4 +367,37 @@
     GROUP BY id;
     * 也可以if，如：IF(`month`='Jan',revenue,NULL) Jan_Revenue
 
-15、
+15、窗口函数的使用，
+    https://blog.csdn.net/m0_38063172/article/details/83789830
+    窗口函数的执行顺序（逻辑上的）是在FROM，JOIN，WHERE，GROUP　BY，HAVING之后，在ORDER　BY，LIMIT，SELECT　DISTINCT之前。它执行时GROUP　BY的聚合过程已经完成了，所以不会再产生数据聚合。
+    window_function_name(expression)
+    OVER (
+        [partition_defintion] // 1
+        [order_definition] // 2
+        [frame_definition] //3
+    )
+    * 1：分区
+    2：帧，分区内再分区
+    ROWS定义的frame：
+    start->
+        UNBOUNDED PRECEDING: 区间的第一行
+        N PRECEDING: 当前行之前的N行，N可以是数字，也可以是一个能计算出数字的表达式
+        CURRENT ROW: 当前行
+    end->
+        frame_start：如前面所列
+        UNBOUNDED FOLLOWING：区间的最后一行
+        N FOLLOWING：当前行之后的N行，N可以是数字，也可以是一个能计算出数字的表达式
+        如果没显式指定frame的话，MySQL会认为frame是“ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING”
+     3：分区内排序
+
+     SELECT
+   fiscal_year,
+   sales_employee,
+   sale,
+   SUM(sale) OVER (PARTITION BY sales_employee
+                               ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) total_sales
+    FROM
+       sales;
+
+16、hive中窗口函数的使用
+    select years,type,rate,row_number() over (distribute by years sort by rate) as num from answer9_A;
