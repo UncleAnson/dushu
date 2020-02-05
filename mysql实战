@@ -401,3 +401,20 @@
 
 16、hive中窗口函数的使用
     select years,type,rate,row_number() over (distribute by years sort by rate) as num from answer9_A;
+
+17、579，查询累计薪水
+    https://leetcode-cn.com/problems/find-cumulative-salary-of-an-employee/comments/
+    累计类问题其中一个思路就是自联表：
+    SELECT a.Id, a.Month, SUM(b.Salary) AS Salary
+    FROM Employee a
+        JOIN Employee b
+        ON (a.id = b.id
+            AND b.Month <= a.Month
+            AND b.Month >= a.Month - 2
+            AND (a.id, a.Month) NOT IN (
+                SELECT id, MAX(Month)
+                FROM Employee
+                GROUP BY id
+            ))
+    GROUP BY a.Id, a.Month
+    ORDER BY a.Id, a.Month DESC
