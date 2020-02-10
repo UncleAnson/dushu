@@ -418,3 +418,80 @@
             ))
     GROUP BY a.Id, a.Month
     ORDER BY a.Id, a.Month DESC
+
+18、603，连续空余座位
+    https://leetcode-cn.com/problems/consecutive-available-seats/
+    select distinct a.seat_id
+    from cinema a inner join cinema b
+    on  abs(a.seat_id - b.seat_id = 1)=1 // (a.seat_id - b.seat_id = 1) or (a.seat_id - b.seat_id = -1)
+    where a.free=1 and b.free =1
+    order by a.seat_id
+    * "连续"表示两个及以上，如果要求是三个及以上呢？可以用用户变量解决。
+    可以参考：https://blog.csdn.net/mathphp/article/details/80356788
+    *使用连续记录具有"自增id-自增列"值固定的特点进行分组聚合计数，我的解决如下：
+    SELECT
+        a.seat_id
+    FROM
+        cinema a,
+        (SELECT
+            GROUP_CONCAT(t1.seat_id) s
+        FROM
+            (SELECT
+            t.seat_id, @a:=@a + 1 id, t.seat_id - @a con
+        FROM
+            cinema t, (SELECT @a:=0) init
+        WHERE
+            free = 1) t1
+        GROUP BY t1.con
+        HAVING COUNT(t1.con) >= 2) b
+    WHERE
+        FIND_IN_SET(a.seat_id, b.s)
+    * 但是当t1为空表时整个查询会为空。
+
+19、find_in_set()、in、like的比较：https://www.jb51.net/article/143105.htm
+
+20、608树节点，https://leetcode-cn.com/problems/tree-node/
+    核心思想是利用自关联，如下，
+    SELECT DISTINCT
+        res.id, res.Type
+    FROM
+        (SELECT
+            t1.id,
+                CASE
+                    WHEN t1.p_id IS NULL THEN 'Root'
+                    WHEN t3.id IS NULL THEN 'Leaf'
+                    ELSE 'Inner'
+                END AS Type
+        FROM
+            tree t1
+        LEFT JOIN tree t3 ON t1.id = t3.p_id
+        ORDER BY t1.id) res
+
+21、615 平均工资：部门与公司的比较
+    SELECT
+        t4.pay_month,
+        t3.department_id,
+        CASE
+            WHEN t3.avg_income > t4.avg_income THEN 'higher'
+            WHEN t3.avg_income < t4.avg_income THEN 'lower'
+            ELSE 'same'
+        END comparison
+    FROM
+        (SELECT
+            t2.department_id,
+                AVG(amount) avg_income,
+                LEFT(pay_date, 7) pay_month
+        FROM
+            salary t1
+        JOIN employee t2 ON t1.employee_id = t2.employee_id
+        GROUP BY pay_month , t2.department_id) t3,
+        (SELECT
+            AVG(amount) avg_income, LEFT(pay_date, 7) pay_month
+        FROM
+            salary
+        GROUP BY pay_month) t4
+    WHERE
+        t4.pay_month = t3.pay_month
+    * 分别查询出比较值后联表比较，case when then end 的应用。
+
+22、
